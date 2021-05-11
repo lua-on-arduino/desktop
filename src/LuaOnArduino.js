@@ -1,41 +1,25 @@
 // @ts-check
 
-import { slipDecode } from './utils/index.js'
 import { EventEmitter } from './EventEmitter.js'
 import { Logger } from './Logger.js'
 import { Bridge } from './Bridge.js'
-import OSC from 'osc-js'
-
-const RESPONSE_TIMEOUT = 1000 // ms
+import path from 'path'
 
 export class LuaOnArduino extends EventEmitter {
   logger = new Logger()
-  bridge = new Bridge(this.logger, {
-    /** @param {Buffer} data */
-    onOscData: data => this._handleOscData(data),
-    /** @param {Buffer} data */
-    onRawData: data => this._handleRawData(data),
-  })
+  bridge = new Bridge(this.logger)
 
   constructor() {
     super()
     this.bridge.connect('COM4')
 
-    this.on('/raw/**', () => this.bridge.listenForRawData())
-    this.on('/log/:type', (message, params) =>
+    this.bridge.on('/raw/**', () => this.bridge.expectRawData())
+    this.bridge.on('/log/:type', (message, params) =>
       this.logger[params.type]?.(message.args[0])
     )
-    this.on('/raw/log/:type', (message, params) =>
+    this.bridge.on('/raw/log/:type', (message, params) =>
       this.logger[params.type]?.(message.args[0])
     )
-  }
-
-  /**
-   * @param {string} path
-   * @param {any | Array<any>} args
-   */
-  sendMessage(path, args) {
-    this.bridge.sendMessage(path, args)
   }
 
   /**
@@ -44,13 +28,13 @@ export class LuaOnArduino extends EventEmitter {
    * @returns {Promise<Buffer>}
    */
   async readFile(fileName) {
-    this.sendMessage('/read-file', fileName)
-
     let data
     try {
-      data = this.waitForRawData()
+      data = await this.bridge.sendRequest('/read-file', fileName)
     } catch (error) {
-      this.logger.error(`Couldn't read file '${fileName}'.`)
+      this.logger.error(
+        `Error reading file ${fileName}${error ? ` (${error})` : ''}.`
+      )
     }
     return data
   }
@@ -63,60 +47,79 @@ export class LuaOnArduino extends EventEmitter {
    */
   async writeFile(fileName, data) {
     const buffer = data instanceof Buffer ? data : Buffer.from(data)
-    this.sendMessage('/file', fileName)
-    this.bridge.sendRaw(buffer)
-
     let success = false
+
     try {
-      success = !!(await this.waitForMessage('/success/file'))
+      success = !!(await this.bridge.sendRawRequest(
+        '/write-file',
+        [path.dirname(fileName), path.basename(fileName)],
+        buffer
+      ))
       this.logger.success('write file', fileName)
     } catch (error) {
-      this.logger.error(`Couldn't write file '${fileName}'.`)
+      this.logger.error(
+        `Couldn't write file ${fileName}${error ? ` (${error})` : ''}.`
+      )
     }
     return success
   }
 
   /**
-   * Wait for a specific message from the device.
-   * @async
-   * @param {string} path
-   * @returns {Promise<{payload: any, params: object}>}
+   * Delete a file from the device's SD card.
+   * @param {string} fileName
    */
-  waitForMessage(path) {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(reject, RESPONSE_TIMEOUT)
-      this.once(path, (payload, params) => {
-        clearTimeout(timeout)
-        resolve({ payload, params })
-      })
-    })
-  }
-
-  async waitForRawData() {
-    let data = null
+  async deleteFile(fileName) {
     try {
-      data = (await this.waitForMessage('/raw-data')).payload
-    } catch (error) {}
-    return data
-  }
-
-  /** @param {Buffer} data */
-  _handleOscData(data) {
-    const decodedData = slipDecode(data)
-    // @ts-ignore (osc-js doesn't provide types)
-    const message = new OSC.Message()
-    try {
-      // ? Is all this conversion necessary?
-      message.unpack(new DataView(new Uint8Array(decodedData).buffer))
-      this.emit(message.address, message)
+      await this.bridge.sendRequest('/delete-file', fileName)
+      this.logger.success('delete file', fileName)
     } catch (error) {
-      console.log(data.toString())
+      this.logger.error(`Couldn't delete file ${fileName}.`)
     }
   }
 
-  /** @param {Buffer} data */
-  _handleRawData(data) {
-    const decodedData = slipDecode(data)
-    this.emit('/raw-data', decodedData)
+  /**
+   * Create a directory on the device's SD card.
+   * @param {string} dirName
+   */
+  async createDirectory(dirName) {
+    try {
+      await this.bridge.sendRequest('/create-dir', dirName)
+      this.logger.success('create directory', dirName)
+    } catch (error) {
+      this.logger.error(
+        `Couldn't create directory ${dirName}${error ? ` (${error})` : ''}.`
+      )
+    }
+  }
+
+  /**
+   * Delete a directory on the device's SD card.
+   * @param {string} dirName
+   */
+  async deleteDirectory(dirName) {
+    try {
+      await this.bridge.sendRequest('/delete-dir', dirName)
+      this.logger.success('delete directory', dirName)
+    } catch (error) {
+      this.logger.error(
+        `Couldn't delete directory ${dirName}${error ? ` (${error})` : ''}.`
+      )
+    }
+  }
+
+  /**
+   * List a directory on the device's SD card.
+   * @param {string} dirName
+   */
+  async listDirectory(dirName) {
+    let list
+
+    try {
+      list = await this.bridge.sendRequest('/list-dir', dirName)
+    } catch (error) {
+      this.logger.error(error?.message)
+    }
+
+    return list
   }
 }
