@@ -51,6 +51,8 @@ export class Bridge extends EventEmitter {
     parser.on('data', data => this._handleData(data))
     this.port.pipe(parser)
 
+    this.port.on('close', () => this.logger.error('disconnected'))
+
     return new Promise((resolve, reject) => {
       this.port.open(error => {
         if (error) {
@@ -67,7 +69,9 @@ export class Bridge extends EventEmitter {
    * @param {Buffer} data
    */
   sendRaw(data) {
-    this.port.write(slipEncode(data))
+    this.port.write(slipEncode(data), error => {
+      if (error) this.logger.error(error.message)
+    })
   }
 
   /**
