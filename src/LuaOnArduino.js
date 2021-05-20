@@ -74,12 +74,6 @@ export class LuaOnArduino extends EventEmitter {
       )
     }
 
-    // For some reasons, when writing two files directly after one another,
-    // sometimes the serial input on the device doesn't switch to raw mode fast
-    // enough and is therefore ignoring the file content, writing an empty file.
-    // A small delay seems to help, although this is quite a hacky workaround...
-    // TODO: Find out what the problem really is.
-    await delay(50)
     return success
   }
 
@@ -185,7 +179,6 @@ export class LuaOnArduino extends EventEmitter {
         watcher.on('change', async path => {
           const posixPath = pathToPosix(path)
           this.writeFile(posixPath, await fs.readFile(path))
-          await delay(100)
           this.updateFile(posixPath)
         })
 
