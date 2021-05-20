@@ -3,10 +3,10 @@
 import { EventEmitter } from './EventEmitter.js'
 import { Logger } from './Logger.js'
 import { Bridge } from './Bridge.js'
-import path from 'path'
+import path, { relative, sep } from 'path'
 import chokidar from 'chokidar'
 import { promises as fs } from 'fs'
-import { delay, pathToPosix } from './utils/index.js'
+import { pathToPosix, dirListIncludes } from './utils/index.js'
 
 export class LuaOnArduino extends EventEmitter {
   logger = new Logger()
@@ -57,7 +57,7 @@ export class LuaOnArduino extends EventEmitter {
    * @param {Buffer | ArrayBuffer} data
    * @returns
    */
-  async writeFile(fileName, data) {
+  async writeFile(fileName, data, logSuccess = true) {
     const buffer = data instanceof Buffer ? data : Buffer.from(data)
     let success = false
 
@@ -67,11 +67,9 @@ export class LuaOnArduino extends EventEmitter {
         [path.dirname(fileName), path.basename(fileName)],
         buffer
       ))
-      this.logger.success('write file', fileName)
+      logSuccess && this.logger.success('write file', fileName)
     } catch (error) {
-      this.logger.error(
-        `Couldn't write file ${fileName}${error ? ` (${error})` : ''}.`
-      )
+      this.logger.error(`Couldn't write file ${fileName}.`, error)
     }
 
     return success
@@ -86,7 +84,7 @@ export class LuaOnArduino extends EventEmitter {
       await this.bridge.sendRequest('/delete-file', fileName)
       this.logger.success('delete file', fileName)
     } catch (error) {
-      this.logger.error(`Couldn't delete file ${fileName}.`)
+      this.logger.error(`Couldn't delete file ${fileName}.`, error)
     }
   }
 
@@ -104,7 +102,7 @@ export class LuaOnArduino extends EventEmitter {
       const type = usedHmr ? 'hmr' : 'reload'
       this.logger.success(`update file (${type})`, fileName)
     } catch (error) {
-      this.logger.error(`Couldn't update file ${fileName}.`)
+      this.logger.error(`Couldn't update file ${fileName}.`, error)
     }
   }
 
@@ -117,9 +115,7 @@ export class LuaOnArduino extends EventEmitter {
       await this.bridge.sendRequest('/lua/run-file', fileName)
       this.logger.success('run file', fileName)
     } catch (error) {
-      this.logger.error(
-        `Couldn't run file ${fileName}${error ? ` (${error})` : ''}.`
-      )
+      this.logger.error(`Couldn't run file ${fileName}`, error)
     }
   }
 
@@ -132,9 +128,7 @@ export class LuaOnArduino extends EventEmitter {
       await this.bridge.sendRequest('/create-dir', dirName)
       this.logger.success('create directory', dirName)
     } catch (error) {
-      this.logger.error(
-        `Couldn't create directory ${dirName}${error ? ` (${error})` : ''}.`
-      )
+      this.logger.error(`Couldn't create directory ${dirName}.`, error)
     }
   }
 
@@ -147,43 +141,42 @@ export class LuaOnArduino extends EventEmitter {
       await this.bridge.sendRequest('/delete-dir', dirName)
       this.logger.success('delete directory', dirName)
     } catch (error) {
-      this.logger.error(
-        `Couldn't delete directory ${dirName}${error ? ` (${error})` : ''}.`
-      )
+      this.logger.error(`Couldn't delete directory ${dirName}.`, error)
     }
   }
 
   /**
-   * Sync a directory to the device.
+   * Sync files to the device.
    * @param {string} dir The directory on the computer.
    * @returns {Promise<chokidar.FSWatcher>}
    */
-  syncDirectory(dir, { watch = false } = {}) {
+  async syncDirectory(dir, { watch = false } = {}) {
     const watcher = chokidar.watch(dir)
 
-    // We can only send one file at a time, so we have to make a list with all
-    // the initial files first and send them later one after the other.
-    const initialList = []
-    /** @param {string} path */
-    const addToInitialList = path => initialList.push(path)
-    watcher.on('add', addToInitialList)
+    const syncFile =
+      /** @param {string} path */
+      async (path, update = true) => {
+        const posixPath = pathToPosix(path)
+        // As `updateFile()` also logs a success message we can omit the
+        // `writeFile()` success.
+        const logSuccess = !update
+        this.writeFile(posixPath, await fs.readFile(path), logSuccess)
+        update && this.updateFile(posixPath)
+      }
+
+    const dirList = await this.listDirectory('lua')
+
+    const handleInitialAdd = /** @param {string} path */ path => {
+      if (!dirListIncludes(dirList, relative('lua/', path)))
+        syncFile(path, false)
+    }
+
+    watcher.on('add', handleInitialAdd)
 
     return new Promise(resolve => {
       watcher.on('ready', async () => {
-        for (const path of initialList) {
-          await this.writeFile(pathToPosix(path), await fs.readFile(path))
-        }
-        watcher.off('add', addToInitialList)
-
-        // We handled the initial files and can now register our change handler.
-        watcher.on('change', async path => {
-          const posixPath = pathToPosix(path)
-          this.writeFile(posixPath, await fs.readFile(path))
-          this.updateFile(posixPath)
-        })
-
-        // Because we don't use `ignoreInitial` all files have been transferred
-        // now and we can close the watcher again.
+        watcher.off('add', handleInitialAdd)
+        watcher.on('change', syncFile)
         if (!watch) watcher.close()
         resolve(watcher)
       })
@@ -198,7 +191,9 @@ export class LuaOnArduino extends EventEmitter {
     let list
 
     try {
-      list = await this.bridge.sendRequest('/list-dir', dirName)
+      list = JSON.parse(
+        (await this.bridge.sendRequest('/list-dir', dirName)).toString()
+      )
     } catch (error) {
       this.logger.error(error?.message)
     }
