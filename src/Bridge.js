@@ -36,22 +36,30 @@ export class Bridge extends EventEmitter {
 
   /**
    * Connect to the device.
+   * @async
    * @param {string} path
    * @param {SerialPort.OpenOptions} openOptions
    */
   connect(path, openOptions = {}) {
-    this.port = new SerialPort(
-      path,
-      { baudRate: 9600, ...openOptions },
-      error => {
-        if (error) this.logger.error(error.message)
-        else this.logger.success('connected')
-      }
-    )
+    this.port = new SerialPort(path, {
+      baudRate: 9600,
+      ...openOptions,
+      autoOpen: false,
+    })
 
     const parser = new Delimiter({ delimiter: [SLIP_END] })
     parser.on('data', data => this._handleData(data))
     this.port.pipe(parser)
+
+    return new Promise((resolve, reject) => {
+      this.port.open(error => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve()
+        }
+      })
+    })
   }
 
   /**
@@ -183,12 +191,15 @@ export class Bridge extends EventEmitter {
       message.unpack(new DataView(new Uint8Array(decodedData).buffer))
       this.emit(message.address, message)
     } catch (error) {
-      console.log(data.toString())
+      // If the data wasn't an OSC message it's probably just a print output
+      // from lua.
+      this.logger.print(data.toString())
     }
   }
 
   /** @param {Buffer} data */
   _handleRawData(data) {
+    // console.log(`raw: ${data.toString()}`)
     const decodedData = slipDecode(data)
     this.emit('/raw-data', decodedData)
   }

@@ -1,3 +1,6 @@
 export * from './parsePathPattern.js'
 export * from './slip.js'
 export * from './startsWith.js'
+export * from './pathToPosix.js'
+export * from './delay.js'
+export * from './highlightLuaDump.js'
