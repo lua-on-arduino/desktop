@@ -17,37 +17,40 @@ export class Logger {
   }
 
   /**
-   * Log a warning to the console.
+   * Log an info to the console.
    * @param {string} text
+   * @param {string} [detail]
    */
-  info(text) {
-    console.log(this.prefix + chalk.gray(text))
+  info(text, detail) {
+    console.log(this.prefix + chalk.gray(text + detail ? ` (${detail})` : ''))
   }
 
   /**
    * Log a warning to the console.
    * @param {string} text
+   * @param {string} [detail]
    */
-  warning(text) {
-    console.log(this.prefix + chalk.yellow(text))
+  warning(text, detail) {
+    console.log(this.prefix + chalk.yellow(text + detail ? ` (${detail})` : ''))
   }
 
   /**
-   * Log a warning to the console.
+   * Log an error to the console.
    * @param {string} text
+   * @param {string} [detail]
    */
-  error(text) {
-    console.log(this.prefix + chalk.red(text))
+  error(text, detail) {
+    console.log(this.prefix + chalk.red(text + detail ? ` (${detail})` : ''))
   }
 
   /**
-   * Log a warning to the console.
-   * @param {string} type
-   * @param {string} [text]
+   * Log a success message to the console.
+   * @param {string} text
+   * @param {string} [detail]
    */
-  success(type, text) {
+  success(text, detail) {
     console.log(
-      this.prefix + chalk.green(type) + (text ? ` ${chalk.gray(text)}` : '')
+      this.prefix + chalk.green(text) + (detail ? ` ${chalk.gray(detail)}` : '')
     )
   }
 
