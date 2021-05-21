@@ -15,7 +15,6 @@ export class LuaOnArduino extends EventEmitter {
   constructor() {
     super()
 
-    this.bridge.on('/raw/**', () => this.bridge.expectRawData())
     this.bridge.on('/log/:type', (message, params) =>
       this.logger[params.type]?.(message.args[0])
     )
@@ -29,9 +28,14 @@ export class LuaOnArduino extends EventEmitter {
     try {
       await this.bridge.connect('COM4')
       this.logger.success('connected')
+      return true
     } catch (error) {
       this.logger.error(error?.message)
     }
+  }
+
+  destroy() {
+    return this.bridge.close()
   }
 
   /**
@@ -99,8 +103,8 @@ export class LuaOnArduino extends EventEmitter {
         '/lua/update-file',
         fileName
       )
-      const type = usedHmr ? 'hmr' : 'reload'
-      this.logger.success(`update file (${type})`, fileName)
+      const type = usedHmr ? 'hmr update' : 'reload'
+      this.logger.success(type, fileName)
     } catch (error) {
       this.logger.error(`Couldn't update file ${fileName}.`, error)
     }
@@ -147,11 +151,13 @@ export class LuaOnArduino extends EventEmitter {
 
   /**
    * Sync files to the device.
-   * @param {string} dir The directory on the computer.
+   * @param {string} pattern The files to sync.
    * @returns {Promise<chokidar.FSWatcher>}
    */
-  async syncDirectory(dir, { watch = false } = {}) {
-    const watcher = chokidar.watch(dir)
+  async syncFiles(pattern, { watch = false, override = false } = {}) {
+    const watcher = chokidar.watch(pattern)
+
+    this.logger.info(`sync files ${pattern}`)
 
     const syncFile =
       /** @param {string} path */
@@ -167,7 +173,7 @@ export class LuaOnArduino extends EventEmitter {
     const dirList = await this.listDirectory('lua')
 
     const handleInitialAdd = /** @param {string} path */ path => {
-      if (!dirListIncludes(dirList, relative('lua/', path)))
+      if (override || !dirListIncludes(dirList, relative('lua/', path)))
         syncFile(path, false)
     }
 

@@ -32,6 +32,7 @@ export class Bridge extends EventEmitter {
   constructor(logger) {
     super()
     this.logger = logger
+    this.on('/raw/**', () => this.expectRawData())
   }
 
   /**
@@ -55,6 +56,18 @@ export class Bridge extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this.port.open(error => {
+        if (error) {
+          reject(error)
+        } else {
+          resolve()
+        }
+      })
+    })
+  }
+
+  close() {
+    return new Promise((resolve, reject) => {
+      this.port.close(error => {
         if (error) {
           reject(error)
         } else {
