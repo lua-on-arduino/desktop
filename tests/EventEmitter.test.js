@@ -1,4 +1,4 @@
-import { expect, jest, it, test } from '@jest/globals'
+import { expect, jest, it } from '@jest/globals'
 import { EventEmitter } from '../src/EventEmitter'
 
 describe('EventEmitter', () => {
@@ -30,14 +30,20 @@ describe('EventEmitter', () => {
 
   it('handles wildcards in event paths', () => {
     const eventEmitter = new EventEmitter()
-    let handler = jest.fn()
 
-    eventEmitter.on('/test/*/test', handler)
+    const handler1 = jest.fn()
+    eventEmitter.on('/test/*/test', handler1)
     eventEmitter.emit('/test/foo/test')
-    expect(handler).toBeCalled()
+    expect(handler1).toBeCalled()
 
-    eventEmitter.on('/*', handler)
+    const handler2 = jest.fn()
+    eventEmitter.on('/*', handler2)
     eventEmitter.emit('/test')
-    expect(handler).toBeCalled()
+    expect(handler2).toBeCalled()
+
+    const handler3 = jest.fn()
+    eventEmitter.on('/test/**', handler3)
+    eventEmitter.emit('/test/foo/bar')
+    expect(handler3).toBeCalled()
   })
 })
