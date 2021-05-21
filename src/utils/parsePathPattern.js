@@ -10,9 +10,8 @@ export const parsePathPattern = pattern => {
   pattern = pattern.replace(/(:[^/]+)/g, '([^/]+)')
 
   // Handle `*` and `**` wildcard
-  // TODO `*` doesn't work, only `**`
-  pattern = pattern.replace(/\/\*(\/|$)/g, '[^/]+')
-  pattern = pattern.replace(/\/\*\*(\/|$)/g, '.*')
+  pattern = pattern.replace(/\/\*(\/|$)/g, '/[^/]+/?')
+  pattern = pattern.replace(/\/\*\*(\/|$)/g, '/.*/?')
 
   const regExp = new RegExp(`^${pattern}$`)
 
