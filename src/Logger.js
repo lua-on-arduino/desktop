@@ -22,7 +22,8 @@ export class Logger {
    * @param {string} [detail]
    */
   info(text, detail) {
-    console.log(this.prefix + chalk.gray(text + detail ? ` (${detail})` : ''))
+    detail = detail ? ` (${detail})` : ''
+    console.log(this.prefix + chalk.gray(text + detail))
   }
 
   /**
@@ -31,7 +32,8 @@ export class Logger {
    * @param {string} [detail]
    */
   warning(text, detail) {
-    console.log(this.prefix + chalk.yellow(text + detail ? ` (${detail})` : ''))
+    detail = detail ? ` (${detail})` : ''
+    console.log(this.prefix + chalk.yellow(text + detail))
   }
 
   /**
@@ -40,7 +42,8 @@ export class Logger {
    * @param {string} [detail]
    */
   error(text, detail) {
-    console.log(this.prefix + chalk.red(text + detail ? ` (${detail})` : ''))
+    detail = detail ? ` (${detail})` : ''
+    console.log(this.prefix + chalk.red(text + detail))
   }
 
   /**
@@ -49,9 +52,8 @@ export class Logger {
    * @param {string} [detail]
    */
   success(text, detail) {
-    console.log(
-      this.prefix + chalk.green(text) + (detail ? ` ${chalk.gray(detail)}` : '')
-    )
+    detail = detail ? ` ${chalk.gray(detail)}` : ''
+    console.log(this.prefix + chalk.green(text) + detail)
   }
 
   /**
