@@ -7,6 +7,7 @@ import path, { relative, sep } from 'path'
 import chokidar from 'chokidar'
 import { promises as fs } from 'fs'
 import { pathToPosix, dirListIncludes } from './utils/index.js'
+import SerialPort from 'serialport'
 
 export class LuaOnArduino extends EventEmitter {
   logger = new Logger()
@@ -24,9 +25,15 @@ export class LuaOnArduino extends EventEmitter {
     })
   }
 
-  async connect() {
+  /**
+   * Connect to the device.
+   * @async
+   * @param {string} path
+   * @param {SerialPort.OpenOptions} [openOptions]
+   */
+  async connect(path, openOptions = {}) {
     try {
-      await this.bridge.connect('COM4')
+      await this.bridge.connect(path, openOptions)
       this.logger.success('connected')
       return true
     } catch (error) {
