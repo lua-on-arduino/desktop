@@ -162,9 +162,8 @@ export class LuaOnArduino extends EventEmitter {
    * @returns {Promise<chokidar.FSWatcher>}
    */
   async syncFiles(pattern, { watch = false, override = false } = {}) {
-    const watcher = chokidar.watch(pattern)
-
     this.logger.info(`sync files ${pattern}`)
+    const dirList = await this.listDirectory('lua')
 
     const syncFile =
       /** @param {string} path */
@@ -177,16 +176,14 @@ export class LuaOnArduino extends EventEmitter {
         update && this.updateFile(posixPath)
       }
 
-    const dirList = await this.listDirectory('lua')
-
     const handleInitialAdd = /** @param {string} path */ path => {
       if (override || !dirListIncludes(dirList, relative('lua/', path)))
         syncFile(path, false)
     }
 
-    watcher.on('add', handleInitialAdd)
-
     return new Promise(resolve => {
+      const watcher = chokidar.watch(pattern)
+      watcher.on('add', handleInitialAdd)
       watcher.on('ready', async () => {
         watcher.off('add', handleInitialAdd)
         watcher.on('change', syncFile)
