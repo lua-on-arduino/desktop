@@ -17,7 +17,7 @@ function HMR.update(modulePath)
     type(oldModule) == 'table' and
     type(oldModule.__hmrDispose) == 'function'
   ) then
-    data = oldModule.__hmrDispose()
+    data = oldModule.__hmrDispose(oldModule)
   end
 
   -- Remove the the module from the cache so the new version gets required.
@@ -29,7 +29,7 @@ function HMR.update(modulePath)
     type(newModule) == 'table' and
     type(newModule.__hmrAccept) == 'function'
   ) then
-    newModule.__hmrAccept(data)
+    newModule.__hmrAccept(data, newModule)
     hotReplaced = true
   end
 
