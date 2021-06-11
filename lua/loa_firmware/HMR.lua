@@ -30,7 +30,7 @@ function HMR.update(modulePath)
     and type(newModule.__hmrAccept) == 'function'
   then
     local decline = type(newModule.__hmrDecline) == 'function'
-      and newModule.__hmrDecline()
+      and newModule.__hmrDecline(data, newModule)
 
     if not decline then
       newModule.__hmrAccept(data, newModule)
