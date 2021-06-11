@@ -188,7 +188,6 @@ export class Bridge extends EventEmitter {
 
   /** @param {Buffer} data */
   _handleData(data) {
-    // console.log(data.toString())
     if (this.serialReadMode === 'osc') {
       this._handleOscData(data)
     } else if (this.serialReadMode === 'raw') {

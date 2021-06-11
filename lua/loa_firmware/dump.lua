@@ -1,6 +1,14 @@
-local function quote(value) return "'" .. value .. "'" end
-local function doubleQuote(value) return '"' .. value .. '"' end
-local function bracket(value) return "[" .. value .. "]" end
+local function quote(value)
+  return "'" .. value .. "'"
+end
+
+local function doubleQuote(value)
+  return '"' .. value .. '"'
+end
+
+local function bracket(value)
+  return '[' .. value .. ']'
+end
 
 ---Check wether a value is primitive (number, boolean, string) or complex
 ---(table, function, ...)
@@ -9,10 +17,10 @@ local function bracket(value) return "[" .. value .. "]" end
 local function isPrimitve(value)
   local valueType = type(value)
   return (
-    valueType == 'number' or
-    valueType == 'string' or
-    valueType == 'boolean'
-  )
+      valueType == 'number'
+      or valueType == 'string'
+      or valueType == 'boolean'
+    )
 end
 
 ---Return a json representation of the value.
@@ -45,29 +53,27 @@ local function tableToJson(t, done)
   local str = '{'
   local key, value = next(t, nil)
   while key do
-    if (type(value) == 'table' and not done[value]) then
+    if type(value) == 'table' and not done[value] then
       done[value] = true
-      str = str .. string.format(
-        '"%s":%s',
-        keyToJson(key),
-        tableToJson(value, done)
-      )
+      str = str
+        .. string.format('"%s":%s', keyToJson(key), tableToJson(value, done))
 
       done[value] = nil
     else
-      str = str .. 
-        string.format('"%s":%s', keyToJson(key), valueToJson(value))
+      str = str .. string.format('"%s":%s', keyToJson(key), valueToJson(value))
     end
 
     key, value = next(t, key)
-    if key then str = str .. ',' end
+    if key then
+      str = str .. ','
+    end
   end
   return str .. '}'
 end
 
 ---Generate a json representation of the value.
 local function dump(...)
-  local args = {...}
+  local args = { ... }
   local json = ''
   for i = 1, select('#', ...) do
     local value = args[i]

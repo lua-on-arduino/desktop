@@ -13,10 +13,10 @@ function HMR.update(modulePath)
   local oldModule = _G._LOADED[moduleName]
   local data
 
-  if (
-    type(oldModule) == 'table' and
-    type(oldModule.__hmrDispose) == 'function'
-  ) then
+  if
+    type(oldModule) == 'table'
+    and type(oldModule.__hmrDispose) == 'function'
+  then
     data = oldModule.__hmrDispose(oldModule)
   end
 
@@ -25,12 +25,17 @@ function HMR.update(modulePath)
   local newModule = require(moduleName)
 
   local hotReplaced = false
-  if (
-    type(newModule) == 'table' and
-    type(newModule.__hmrAccept) == 'function'
-  ) then
-    newModule.__hmrAccept(data, newModule)
-    hotReplaced = true
+  if
+    type(newModule) == 'table'
+    and type(newModule.__hmrAccept) == 'function'
+  then
+    local decline = type(newModule.__hmrDecline) == 'function'
+      and newModule.__hmrDecline()
+
+    if not decline then
+      newModule.__hmrAccept(data, newModule)
+      hotReplaced = true
+    end
   end
 
   return hotReplaced
