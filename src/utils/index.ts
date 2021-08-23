@@ -1,5 +1,7 @@
+export * from './dirIncludes'
 export * from './getMessageId'
 export * from './highlightLuaDump'
 export * from './parsePathPattern'
+export * from './pathToPosix'
 export * from './slip'
 export * from './startsWith'

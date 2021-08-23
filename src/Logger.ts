@@ -16,7 +16,7 @@ export class Logger {
   /**
    * Log an info to the console.
    */
-  info(text: string, detail: string) {
+  info(text: string, detail?: string) {
     detail = detail ? ` (${detail})` : ''
     console.log(this.prefix + chalk.gray(text + detail))
   }

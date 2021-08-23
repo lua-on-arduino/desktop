@@ -17,7 +17,7 @@ const RESPONSE_TIMEOUT = 1000 // ms
 
 export class Bridge extends EventEmitter {
   port: SerialPort
-  serialReadMode: SerialReadMode
+  serialReadMode: SerialReadMode = 'osc'
 
   constructor(public logger: Logger) {
     super()
@@ -169,8 +169,6 @@ export class Bridge extends EventEmitter {
   }
 
   #handleData(data: Buffer) {
-    console.log(`raw: ${data.toString()}`)
-
     if (this.serialReadMode === 'osc') {
       this.#handleOscData(data)
     } else if (this.serialReadMode === 'raw') {
@@ -196,7 +194,7 @@ export class Bridge extends EventEmitter {
   }
 
   #handleRawData(data: Buffer) {
-    console.log(`raw: ${data.toString()}`)
+    // console.log(`raw: ${data.toString()}`)
     const decodedData = slipDecode(data)
     this.emit('/raw-data', decodedData)
   }
