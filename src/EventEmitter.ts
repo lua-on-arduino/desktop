@@ -1,30 +1,28 @@
-// @ts-check
+import { parsePathPattern, PathParams } from './utils/index'
 
-import { parsePathPattern } from './utils/parsePathPattern.js'
+export type EventEmitterParams = PathParams
 
-/** @typedef {(payload: any, params: object) => any} EventEmitterHandler */
+export type EventEmitterHandler = (
+  payload: any,
+  params: EventEmitterParams
+) => any
 
-/** 
- * @typedef {{
- *  path: string
- *  match: (path: string) => object | boolean
- *  handlers: Array<EventEmitterHandler>
- * }} EventEmitterEvent
- */
+export interface EventEmitterEvent {
+  path: string
+  match: (path: string) => object | boolean
+  handlers: Array<EventEmitterHandler>
+}
 
 /**
  * An event emitter that uses OSC style path's as event names.
  */
 export class EventEmitter {
-  /** @type {Object<string, EventEmitterEvent>} */
-  events = {}
+  events: { [path: string]: EventEmitterEvent } = {}
 
   /**
    * Add a new event listener.
-   * @param {string} path 
-   * @param {EventEmitterHandler} handler
    */
-  on(path, handler) {
+  on(path: string, handler: EventEmitterHandler) {
     const { events } = this
     events[path] = events[path] ?? {
       path,
@@ -36,10 +34,8 @@ export class EventEmitter {
 
   /**
    * Remove an event listener.
-   * @param {string} path 
-   * @param {EventEmitterHandler} handler 
    */
-  off(path, handler) {
+  off(path: string, handler: EventEmitterHandler) {
     const handlers = this.events[path]?.handlers
     const index = handlers?.indexOf(handler)
     if (index !== undefined && index >= 0) handlers.splice(index, 1)
@@ -47,12 +43,9 @@ export class EventEmitter {
 
   /**
    * Add an event listener that gets removed again after it's first call.
-   * @param {string} path 
-   * @param {EventEmitterHandler} handler 
    */
-  once(path, handler) {
-    /** @param {any} args */
-    const handlerOnce = (...args) => {
+  once(path: string, handler: EventEmitterHandler) {
+    const handlerOnce = (...args: any) => {
       handler.call(this, ...args)
       this.off(path, handlerOnce)
     }
@@ -61,10 +54,8 @@ export class EventEmitter {
 
   /**
    * Emit an event.
-   * @param {string} path 
-   * @param {any} payload 
    */
-  emit(path, payload) {
+  emit(path: string, payload: any) {
     for (const { match, handlers } of Object.values(this.events)) {
       if (!handlers.length) continue
       const params = match(path)

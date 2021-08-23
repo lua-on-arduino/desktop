@@ -1,47 +1,30 @@
-// @ts-check
-
-import { slipEncode, slipDecode, startsWith } from './utils/index.js'
 import SerialPort from 'serialport'
+import { slipEncode, slipDecode, getMessageId, startsWith } from './utils/index'
 import Delimiter from '@serialport/parser-delimiter'
+import { Logger } from './Logger'
+import { EventEmitter, EventEmitterParams } from './EventEmitter'
 import OSC from 'osc-js'
-import { EventEmitter } from './EventEmitter.js'
-import { Logger } from './Logger.js'
+
+export type SerialReadMode = 'osc' | 'raw'
+
+export interface Message {
+  address: string
+  args: any[]
+}
 
 const SLIP_END = 0xc0
 const RESPONSE_TIMEOUT = 1000 // ms
 
-let messageId = -1
-/**
- * Create a 16bit message id.
- * @returns
- */
-const getMessageId = () => {
-  messageId++
-  if (messageId > 65535) messageId = 0
-  return messageId
-}
-
 export class Bridge extends EventEmitter {
-  /** @type {SerialPort} */
-  port
+  port: SerialPort
+  serialReadMode: SerialReadMode
 
-  /** @type {'osc' | 'raw'} */
-  serialReadMode = 'osc'
-
-  /** @param {Logger} logger */
-  constructor(logger) {
+  constructor(public logger: Logger) {
     super()
-    this.logger = logger
-    this.on('/raw/**', () => this.expectRawData())
+    this.on('/raw/**', () => this.#expectRawData())
   }
 
-  /**
-   * Connect to the device.
-   * @async
-   * @param {string} path
-   * @param {SerialPort.OpenOptions} openOptions
-   */
-  connect(path, openOptions = {}) {
+  connect(path: string, openOptions: SerialPort.OpenOptions = {}) {
     this.port = new SerialPort(path, {
       baudRate: 9600,
       ...openOptions,
@@ -49,12 +32,12 @@ export class Bridge extends EventEmitter {
     })
 
     const parser = new Delimiter({ delimiter: [SLIP_END] })
-    parser.on('data', data => this._handleData(data))
+    parser.on('data', data => this.#handleData(data))
     this.port.pipe(parser)
 
     this.port.on('close', () => this.logger.error('disconnected'))
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.port.open(error => {
         if (error) {
           reject(error)
@@ -66,7 +49,7 @@ export class Bridge extends EventEmitter {
   }
 
   close() {
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       this.port.close(error => {
         if (error) {
           reject(error)
@@ -79,9 +62,8 @@ export class Bridge extends EventEmitter {
 
   /**
    * Send raw data to the device.
-   * @param {Buffer} data
    */
-  sendRaw(data) {
+  sendRaw(data: Buffer) {
     this.port.write(slipEncode(data), error => {
       if (error) this.logger.error(error.message)
     })
@@ -89,10 +71,9 @@ export class Bridge extends EventEmitter {
 
   /**
    * Send an OSC message to the device.
-   * @param {string} path
-   * @param {any | Array<any>} args
+   * @returns The message id.
    */
-  sendMessage(path, args) {
+  sendMessage(path: string, args: any | Array<any>) {
     const argsArray = Array.isArray(args) ? args : [args]
     const id = getMessageId()
     // @ts-ignore (osc-js doesn't provide types)
@@ -103,30 +84,29 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * Send an OSC message to the device that expects a response.
-   * @async
-   * @param {string} path
-   * @param {any | Array<any>} args
-   * @returns {Promise<any>}
+   * Send an OSC message to the device and expect a response.
    */
-  sendRequest(path, args) {
+  sendRequest(path: string, args: any | Array<any>): Promise<any> {
     const id = this.sendMessage(path, args)
     return this.waitForResponse(id)
   }
 
-  sendRawRequest(path, args, data) {
+  /**
+   * Send an OSC message, followed by raw data and expect a response.
+   * For example we could send a `save-file` message, followed by the raw
+   * content of the file and expect a response wether or not the file could be
+   * saved.
+   */
+  sendRawRequest(path: string, args: any, data: Buffer) {
     const id = this.sendMessage(path, args)
     this.sendRaw(data)
     return this.waitForResponse(id)
   }
 
   /**
-   * Wait for a specific message from the device.
-   * @async
-   * @param {string} path
-   * @returns {Promise<{payload: any, params: object}>}
+   * Wait for a message with a specific path.
    */
-  waitForMessage(path) {
+  waitForMessage(path: string): Promise<{ payload: any; params: object }> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(reject, RESPONSE_TIMEOUT)
       this.once(path, (payload, params) => {
@@ -137,20 +117,19 @@ export class Bridge extends EventEmitter {
   }
 
   /**
-   * Wait for a response from the device.
-   * @async
-   * @param {number} id
-   * @returns {Promise<{payload: any}>}
+   * Wait for a response.
    */
-  waitForResponse(id) {
+  waitForResponse(id: number): Promise<{ payload: any }> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(
         () => reject('response timeout'),
         RESPONSE_TIMEOUT
       )
 
-      /** @type {(message: object, params: object) => Promise<void>} */
-      const handler = async (message, params) => {
+      const handler: (
+        message: Message,
+        params: EventEmitterParams
+      ) => Promise<void> = async (message, params) => {
         const [responseId, payload] = message.args
 
         if (responseId === id) {
@@ -174,10 +153,9 @@ export class Bridge extends EventEmitter {
     })
   }
 
-  expectRawData() {
-    this.serialReadMode = 'raw'
-  }
-
+  /**
+   * Wait for raw data.
+   */
   async waitForRawData() {
     let data = null
     try {
@@ -186,19 +164,23 @@ export class Bridge extends EventEmitter {
     return data
   }
 
-  /** @param {Buffer} data */
-  _handleData(data) {
+  #expectRawData() {
+    this.serialReadMode = 'raw'
+  }
+
+  #handleData(data: Buffer) {
+    console.log(`raw: ${data.toString()}`)
+
     if (this.serialReadMode === 'osc') {
-      this._handleOscData(data)
+      this.#handleOscData(data)
     } else if (this.serialReadMode === 'raw') {
-      this._handleRawData(data)
+      this.#handleRawData(data)
       // After we've received the raw data we switch back to osc mode.
       this.serialReadMode = 'osc'
     }
   }
 
-  /** @param {Buffer} data */
-  _handleOscData(data) {
+  #handleOscData(data: Buffer) {
     const decodedData = slipDecode(data)
     // @ts-ignore (osc-js doesn't provide types)
     const message = new OSC.Message()
@@ -213,9 +195,8 @@ export class Bridge extends EventEmitter {
     }
   }
 
-  /** @param {Buffer} data */
-  _handleRawData(data) {
-    // console.log(`raw: ${data.toString()}`)
+  #handleRawData(data: Buffer) {
+    console.log(`raw: ${data.toString()}`)
     const decodedData = slipDecode(data)
     this.emit('/raw-data', decodedData)
   }

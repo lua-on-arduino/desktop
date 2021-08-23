@@ -9,15 +9,11 @@ const colorize = {
   string: chalk.yellow,
 }
 
-const indent = depth => '  '.repeat(depth)
+const indent = (depth: number) => '  '.repeat(depth)
 
-const trimBrackets = string => string.slice(1, -1)
+const trimBrackets = (string: string) => string.slice(1, -1)
 
-/**
- * @param {string} key
- * @returns {string}
- */
-const highlightKey = key => {
+const highlightKey = (key: string): string => {
   if (/^(_G|_VERSION)$/.test(key)) {
     // Special global lua key
     return colorize.specialKey(key)
@@ -35,11 +31,7 @@ const highlightKey = key => {
   }
 }
 
-/**
- * @param {string} value
- * @returns {string}
- */
-const highlightValue = value => {
+const highlightValue = (value: string): string => {
   if (/^(table|(light)?function)$/.test(value)) {
     // Complex data type representation
     return colorize.complexType(value)
@@ -57,12 +49,7 @@ const highlightValue = value => {
   }
 }
 
-/**
- * @param {Object} obj
- * @param {number} depth
- * @returns {string}
- */
-const highlightTable = (obj, depth = 0) => {
+const highlightTable = (obj: object, depth: number = 0): string => {
   const keys = Object.keys(obj)
   if (!keys.length) return '{}'
 
@@ -85,10 +72,8 @@ const highlightTable = (obj, depth = 0) => {
 
 /**
  * Highlight and format the dump object from lua for printing it to the console.
- * @param {Object|Array} dump
- * @returns
  */
-export const highlightLuaDump = dump =>
+export const highlightLuaDump = (dump: Array<any>) =>
   dump
     .map(value =>
       typeof value === 'object' ? highlightTable(value) : highlightValue(value)

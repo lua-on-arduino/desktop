@@ -1,27 +1,24 @@
-// @ts-check
+export type PathParams = Record<string, string>
 
 /**
  * Return a match function for the specified path pattern.
- * @param {string} pattern
  */
-export const parsePathPattern = pattern => {
-  // Handle url params like `/path/:param`
+export const parsePathPattern = (pattern: string) => {
+  // Handle url params like `/path/:param`.
   const keys = pattern.match(/(:[^/]+)/g)?.map(name => name.substr(1))
   pattern = pattern.replace(/(:[^/]+)/g, '([^/]+)')
 
-  // Handle `*` and `**` wildcard
+  // Handle `*` and `**` wildcard.
   pattern = pattern.replace(/\/\*(\/|$)/g, '/[^/]+/?')
   pattern = pattern.replace(/\/\*\*(\/|$)/g, '/.*/?')
 
   const regExp = new RegExp(`^${pattern}$`)
 
-  /** @param {RegExpMatchArray} match */
-  const getParams = match => {
-    if (!keys) return !!match
-    if (!match) return false
+  const getParams = (match: RegExpMatchArray) => {
+    if (!match) return null
+    if (!keys) return {}
 
-    /** @type {Record<string, string>} */
-    const params = {}
+    const params: PathParams = {}
     keys.forEach(
       // The first element in `match` contains the whole string so we have to
       // offset the index by 1.
@@ -31,10 +28,11 @@ export const parsePathPattern = pattern => {
   }
 
   /**
-   * @param {string} path
-   * @returns {boolean | Record<string, string>} False if the path doesn't match
+   * @returns False if the path doesn't match
    * true or the parameters (if there are any) if the path matches.
    */
-  const match = path => path && getParams(path.match(regExp))
+  const match = (path: string): PathParams =>
+    !path ? null : getParams(path.match(regExp))
+
   return match
 }
