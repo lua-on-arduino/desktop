@@ -1,6 +1,6 @@
 import SerialPort from 'serialport'
-import { slipEncode, slipDecode, getMessageId, startsWith } from './utils/index'
-import Delimiter from '@serialport/parser-delimiter'
+import { getMessageId, startsWith } from './utils/index'
+import { SlipDecoder, SlipEncoder } from '@serialport/parser-slip-encoder'
 import { Logger } from './Logger'
 import { EventEmitter, EventEmitterParams } from './EventEmitter'
 import OSC from 'osc-js'
@@ -12,12 +12,12 @@ export interface Message {
   args: any[]
 }
 
-const SLIP_END = 0xc0
 const RESPONSE_TIMEOUT = 1000 // ms
 
 export class Bridge extends EventEmitter {
   port: SerialPort
   serialReadMode: SerialReadMode = 'osc'
+  encoder: SlipEncoder
 
   constructor(public logger: Logger) {
     super()
@@ -31,9 +31,12 @@ export class Bridge extends EventEmitter {
       autoOpen: false,
     })
 
-    const parser = new Delimiter({ delimiter: [SLIP_END] })
-    parser.on('data', data => this.#handleData(data))
-    this.port.pipe(parser)
+    const decoder = new SlipDecoder()
+    decoder.on('data', (data: Buffer) => this.#handleData(data))
+    this.port.pipe(decoder)
+
+    this.encoder = new SlipEncoder()
+    this.encoder.pipe(this.port)
 
     this.port.on('close', () => this.logger.error('disconnected'))
 
@@ -64,7 +67,7 @@ export class Bridge extends EventEmitter {
    * Send raw data to the device.
    */
   sendRaw(data: Buffer) {
-    this.port.write(slipEncode(data), error => {
+    this.encoder.write(data, (error: Error) => {
       if (error) this.logger.error(error.message)
     })
   }
@@ -179,7 +182,7 @@ export class Bridge extends EventEmitter {
   }
 
   #handleOscData(data: Buffer) {
-    const decodedData = slipDecode(data)
+    const decodedData = data //slipDecode(data)
     // @ts-ignore (osc-js doesn't provide types)
     const message = new OSC.Message()
     try {
@@ -195,7 +198,7 @@ export class Bridge extends EventEmitter {
 
   #handleRawData(data: Buffer) {
     // console.log(`raw: ${data.toString()}`)
-    const decodedData = slipDecode(data)
+    const decodedData = data //slipDecode(data)
     this.emit('/raw-data', decodedData)
   }
 }
