@@ -4,7 +4,8 @@ import { promises as fs } from 'fs'
 import SerialPort from 'serialport'
 import { relative } from 'path'
 import { pathToPosix, dirIncludes } from './utils/index'
-import { Bridge } from './Bridge'
+import AsyncOsc from 'async-osc'
+import { NodeSerialTransport } from 'async-osc/dist/NodeSerialTransport.js'
 import { EventEmitter } from './EventEmitter'
 import { Logger } from './Logger'
 
@@ -14,27 +15,34 @@ export type DirectoryList = Array<FileEntry | DirectoryEntry>
 
 export class LuaOnArduino extends EventEmitter {
   logger = new Logger()
-  bridge = new Bridge(this.logger)
+  osc = new AsyncOsc(new NodeSerialTransport())
 
   constructor() {
     super()
 
-    this.bridge.on('/log/:type', (message, params) =>
+    this.osc.on('/log/:type', (message, params) =>
+      // @ts-ignore
       this.logger[params.type]?.(message.args[0])
     )
 
-    this.bridge.on('/raw/log/:type', async (message, params) => {
-      const data = await this.bridge.waitForRawData()
+    this.osc.on('/raw/log/:type', async (_message, params) => {
+      const data = await this.osc.waitForRawData()
+      // @ts-ignore
       this.logger[params.type]?.(data)
     })
+
+    // Handle uncategorized serial output from the device.
+    this.osc.on('/data/unknown', (data: Uint8Array) =>
+      this.logger.print(Buffer.from(data).toString())
+    )
   }
 
   /**
    * Connect to the device.
    */
-  async connect(path: string, openOptions: SerialPort.OpenOptions = {}) {
+  async connect(path: string, options: SerialPort.OpenOptions = {}) {
     try {
-      await this.bridge.connect(path, openOptions)
+      await this.osc.connect({ path, ...options })
       this.logger.success('connected')
       return true
     } catch (error) {
@@ -43,20 +51,21 @@ export class LuaOnArduino extends EventEmitter {
   }
 
   close() {
-    return this.bridge.close()
+    return this.osc.close()
   }
 
   /**
    * Read a file from the device's SD card.
    */
-  async readFile(fileName: string): Promise<Buffer> {
+  async readFile(fileName: string): Promise<Buffer | null> {
     try {
-      const data = await this.bridge.sendRequest('/read-file', fileName)
-      return data
+      const data = await this.osc.sendRequest('/read-file', fileName)
+      return Buffer.from(data)
     } catch (error) {
       this.logger.error(
         `Error reading file ${fileName}${error ? ` (${error})` : ''}.`
       )
+      return null
     }
   }
 
@@ -70,7 +79,7 @@ export class LuaOnArduino extends EventEmitter {
   ) {
     const buffer = data instanceof Buffer ? data : Buffer.from(data)
     try {
-      await this.bridge.sendRawRequest(
+      await this.osc.sendRawRequest(
         '/write-file',
         [path.dirname(fileName), path.basename(fileName)],
         buffer
@@ -88,7 +97,7 @@ export class LuaOnArduino extends EventEmitter {
    */
   async deleteFile(fileName: string) {
     try {
-      await this.bridge.sendRequest('/delete-file', fileName)
+      await this.osc.sendRequest('/delete-file', fileName)
       this.logger.success('delete file', fileName)
     } catch (error) {
       this.logger.error(`Couldn't delete file ${fileName}.`, error)
@@ -101,7 +110,7 @@ export class LuaOnArduino extends EventEmitter {
   async readDirectory(dirName: string) {
     try {
       return JSON.parse(
-        (await this.bridge.sendRequest('/list-dir', dirName)).toString()
+        (await this.osc.sendRequest('/list-dir', dirName)).toString()
       )
     } catch (error) {
       this.logger.error(error?.message)
@@ -113,7 +122,7 @@ export class LuaOnArduino extends EventEmitter {
    */
   async createDirectory(dirName: string): Promise<boolean> {
     try {
-      await this.bridge.sendRequest('/create-dir', dirName)
+      await this.osc.sendRequest('/create-dir', dirName)
       this.logger.success('create directory', dirName)
       return true
     } catch (error) {
@@ -127,7 +136,7 @@ export class LuaOnArduino extends EventEmitter {
    */
   async deleteDirectory(dirName: string) {
     try {
-      await this.bridge.sendRequest('/delete-dir', dirName)
+      await this.osc.sendRequest('/delete-dir', dirName)
       this.logger.success('delete directory', dirName)
       return true
     } catch (error) {
@@ -141,7 +150,7 @@ export class LuaOnArduino extends EventEmitter {
    */
   async runFile(fileName: string): Promise<boolean> {
     try {
-      await this.bridge.sendRequest('/lua/run-file', fileName)
+      await this.osc.sendRequest('/lua/run-file', fileName)
       this.logger.success('run file', fileName)
       return true
     } catch (error) {
@@ -156,10 +165,7 @@ export class LuaOnArduino extends EventEmitter {
    */
   async updateFile(fileName: string): Promise<boolean> {
     try {
-      const usedHmr = await this.bridge.sendRequest(
-        '/lua/update-file',
-        fileName
-      )
+      const usedHmr = await this.osc.sendRequest('/lua/update-file', fileName)
       const type = usedHmr ? 'hmr update' : 'reload'
       this.logger.success(type, fileName)
       return true

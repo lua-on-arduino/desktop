@@ -15,6 +15,7 @@
   "license": "MIT",
   "dependencies": {
     "@serialport/parser-slip-encoder": "^9.1.0",
+    "async-osc": "file:../../async-osc",
     "chalk": "^4.1.1",
     "chokidar": "^3.5.1",
     "osc-js": "^2.1.2",
@@ -24,6 +25,7 @@
     "@rollup/plugin-commonjs": "^20.0.0",
     "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-node-resolve": "^13.0.4",
+    "@tsconfig/node14": "^1.0.1",
     "@types/serialport": "^8.0.2",
     "esbuild": "^0.12.22",
     "esbuild-node-loader": "^0.3.1",
