@@ -1,25 +1,22 @@
 import path from 'path'
 import chokidar from 'chokidar'
 import { promises as fs } from 'fs'
-import SerialPort from 'serialport'
+import type SerialPort from 'serialport'
 import { relative } from 'path'
 import { pathToPosix, dirIncludes } from './utils/index'
 import AsyncOsc from 'async-osc'
-import { NodeSerialTransport } from 'async-osc/dist/NodeSerialTransport.js'
-import { EventEmitter } from './EventEmitter'
+import NodeSerialTransport from 'async-osc/dist/NodeSerialTransport.js'
 import { Logger } from './Logger'
 
 type FileEntry = string
 type DirectoryEntry = [string, Array<FileEntry | DirectoryEntry>]
 export type DirectoryList = Array<FileEntry | DirectoryEntry>
 
-export class LuaOnArduino extends EventEmitter {
+export class LuaOnArduino {
   logger = new Logger()
   osc = new AsyncOsc(new NodeSerialTransport())
 
   constructor() {
-    super()
-
     this.osc.on('/log/:type', (message, params) =>
       // @ts-ignore
       this.logger[params.type]?.(message.args[0])

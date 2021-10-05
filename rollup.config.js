@@ -1,10 +1,22 @@
 import esbuild from 'rollup-plugin-esbuild'
+import { nodeResolve } from '@rollup/plugin-node-resolve'
+import commonjs from '@rollup/plugin-commonjs'
+import dts from 'rollup-plugin-dts'
 
-export default {
-  input: 'src/index.ts',
-  output: {
-    file: 'dist/index.es.js',
-    format: 'esm',
+export default [
+  {
+    input: 'src/index.ts',
+    output: {
+      file: 'dist/index.js',
+      format: 'es',
+      sourcemap: true,
+    },
+    external: ['path', 'chokidar', 'fs'],
+    plugins: [esbuild(), nodeResolve(), commonjs()],
   },
-  plugins: [esbuild()],
-}
+  {
+    input: 'src/index.ts',
+    output: [{ file: 'dist/index.d.ts', format: 'es' }],
+    plugins: [dts()],
+  },
+]

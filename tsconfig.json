@@ -2,8 +2,9 @@
   "extends": "@tsconfig/node14/tsconfig.json",
   "compilerOptions": {
     "module": "es6",
-    "moduleResolution": "node"
-    // "allowSyntheticDefaultImports": true
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true
   },
   "exclude": ["node_modules"]
 }
