@@ -11,7 +11,7 @@ export default [
       format: 'es',
       sourcemap: true,
     },
-    external: ['path', 'chokidar', 'fs'],
+    external: ['serialport', 'path', 'chokidar', 'fs'],
     plugins: [esbuild(), nodeResolve(), commonjs()],
   },
   {
