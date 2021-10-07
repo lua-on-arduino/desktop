@@ -25,7 +25,7 @@ export class LuaOnArduino {
     this.osc.on('/raw/log/:type', async (_message, params) => {
       const data = await this.osc.waitForRawData()
       // @ts-ignore
-      this.logger[params.type]?.(data)
+      this.logger[params.type]?.(Buffer.from(data).toString())
     })
 
     // Handle uncategorized serial output from the device.
@@ -107,7 +107,7 @@ export class LuaOnArduino {
   async readDirectory(dirName: string) {
     try {
       return JSON.parse(
-        (await this.osc.sendRequest('/list-dir', dirName)).toString()
+        Buffer.from(await this.osc.sendRequest('/list-dir', dirName)).toString()
       )
     } catch (error) {
       this.logger.error(error?.message)
