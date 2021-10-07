@@ -25,7 +25,7 @@
     "@rollup/plugin-node-resolve": "^13.0.4",
     "@tsconfig/node14": "^1.0.1",
     "@types/serialport": "^8.0.2",
-    "esbuild": "^0.12.22",
+    "esbuild": "^0.12.29",
     "esbuild-node-loader": "^0.3.1",
     "nodemon": "^2.0.12",
     "rollup": "^2.56.3",
