@@ -3,7 +3,7 @@ import chokidar from 'chokidar'
 import { promises as fs } from 'fs'
 import type SerialPort from 'serialport'
 import { relative } from 'path'
-import { pathToPosix, dirIncludes } from './utils/index'
+import { pathToPosix, dirIncludes, delay } from './utils/index'
 import AsyncOsc from 'async-osc'
 import NodeSerialTransport from 'async-osc/dist/NodeSerialTransport.js'
 import { Logger } from './Logger'
@@ -16,17 +16,26 @@ export class LuaOnArduino {
   logger = new Logger()
   osc = new AsyncOsc(new NodeSerialTransport())
 
-  constructor() {
-    this.osc.on('/log/:type', (message, params) =>
+  constructor({ debug = false } = {}) {
+    if (debug) {
+      this.osc.on('/data/dev', (data: Uint8Array) =>
+        console.log(Buffer.from(data).toString())
+      )
+    }
+
+    this.osc.on('/log/:type', (message: Object, params: Record<string, any>) =>
       // @ts-ignore
       this.logger[params.type]?.(message.args[0])
     )
 
-    this.osc.on('/raw/log/:type', async (_message, params) => {
-      const data = await this.osc.waitForRawData()
-      // @ts-ignore
-      this.logger[params.type]?.(Buffer.from(data).toString())
-    })
+    this.osc.on(
+      '/raw/log/:type',
+      async (_message: Object, params: Record<string, any>) => {
+        const data = await this.osc.waitForRawData()
+        // @ts-ignore
+        this.logger[params.type]?.(Buffer.from(data).toString())
+      }
+    )
 
     // Handle uncategorized serial output from the device.
     this.osc.on('/data/unknown', (data: Uint8Array) =>
@@ -43,7 +52,7 @@ export class LuaOnArduino {
       this.logger.success('connected')
       return true
     } catch (error) {
-      this.logger.error(error?.message)
+      this.logger.error((error as Error)?.message)
     }
   }
 
@@ -60,7 +69,8 @@ export class LuaOnArduino {
       return Buffer.from(data)
     } catch (error) {
       this.logger.error(
-        `Error reading file ${fileName}${error ? ` (${error})` : ''}.`
+        `Error reading file ${fileName}.`,
+        (error as Error)?.message
       )
       return null
     }
@@ -84,7 +94,10 @@ export class LuaOnArduino {
       logSuccess && this.logger.success('write file', fileName)
       return true
     } catch (error) {
-      this.logger.error(`Couldn't write file ${fileName}.`, error)
+      this.logger.error(
+        `Couldn't write file ${fileName}.`,
+        (error as Error)?.message
+      )
       return false
     }
   }
@@ -96,8 +109,12 @@ export class LuaOnArduino {
     try {
       await this.osc.sendRequest('/delete-file', fileName)
       this.logger.success('delete file', fileName)
+      return true
     } catch (error) {
-      this.logger.error(`Couldn't delete file ${fileName}.`, error)
+      this.logger.error(
+        `Couldn't delete file ${fileName}.`,
+        (error as Error)?.message
+      )
     }
   }
 
@@ -110,7 +127,7 @@ export class LuaOnArduino {
         Buffer.from(await this.osc.sendRequest('/list-dir', dirName)).toString()
       )
     } catch (error) {
-      this.logger.error(error?.message)
+      this.logger.error((error as Error)?.message)
     }
   }
 
@@ -123,7 +140,10 @@ export class LuaOnArduino {
       this.logger.success('create directory', dirName)
       return true
     } catch (error) {
-      this.logger.error(`Couldn't create directory ${dirName}.`, error)
+      this.logger.error(
+        `Couldn't create directory ${dirName}.`,
+        (error as Error)?.message
+      )
       return false
     }
   }
@@ -137,7 +157,10 @@ export class LuaOnArduino {
       this.logger.success('delete directory', dirName)
       return true
     } catch (error) {
-      this.logger.error(`Couldn't delete directory ${dirName}.`, error)
+      this.logger.error(
+        `Couldn't delete directory ${dirName}.`,
+        (error as Error)?.message
+      )
       return false
     }
   }
@@ -151,7 +174,10 @@ export class LuaOnArduino {
       this.logger.success('run file', fileName)
       return true
     } catch (error) {
-      this.logger.error(`Couldn't run file ${fileName}`, error)
+      this.logger.error(
+        `Couldn't run file ${fileName}`,
+        (error as Error)?.message
+      )
       return false
     }
   }
@@ -167,7 +193,10 @@ export class LuaOnArduino {
       this.logger.success(type, fileName)
       return true
     } catch (error) {
-      this.logger.error(`Couldn't update file ${fileName}.`, error)
+      this.logger.error(
+        `Couldn't update file ${fileName}.`,
+        (error as Error)?.message
+      )
       return false
     }
   }
@@ -184,9 +213,16 @@ export class LuaOnArduino {
 
     const syncFile = async (path: string, update = true) => {
       const posixPath = pathToPosix(path)
+
       // As `updateFile()` also logs a success message we can omit the
       // `writeFile()` success.
       const logSuccess = !update
+
+      // For some reasons, reading the file inside a chokidar callback sometimes
+      // returns an empty string, at least on windows. Maybe the file is locked?
+      // As a (dirty) workaround we just wait a bit...
+      await delay(10)
+
       this.writeFile(posixPath, await fs.readFile(path), logSuccess)
       update && this.updateFile(posixPath)
     }
@@ -202,8 +238,10 @@ export class LuaOnArduino {
       watcher.on('ready', async () => {
         watcher.off('add', handleInitialAdd)
         watcher.on('change', syncFile)
-        if (!watch) watcher.close()
-        resolve(watcher)
+        if (!watch) {
+          watcher.close()
+          resolve(watcher)
+        }
       })
     })
   }

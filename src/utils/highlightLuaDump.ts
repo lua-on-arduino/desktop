@@ -49,7 +49,7 @@ const highlightValue = (value: string): string => {
   }
 }
 
-const highlightTable = (obj: object, depth: number = 0): string => {
+const highlightTable = (obj: Record<any, any>, depth: number = 0): string => {
   const keys = Object.keys(obj)
   if (!keys.length) return '{}'
 
