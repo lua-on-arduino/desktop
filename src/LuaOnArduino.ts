@@ -1,11 +1,15 @@
-import path from 'path'
 import chokidar from 'chokidar'
 import { promises as fs } from 'fs'
 import type SerialPort from 'serialport'
-import { relative } from 'path'
-import { pathToPosix, dirIncludes, delay } from './utils/index'
+import {
+  pathToPosix,
+  dirname,
+  basename,
+  dirIncludes,
+  delay,
+} from './utils/index'
 import AsyncOsc from 'async-osc'
-import NodeSerialTransport from 'async-osc/dist/NodeSerialTransport.js'
+import type { AsyncOscTransport } from 'async-osc'
 import { Logger } from './logger'
 
 type FileEntry = string
@@ -14,12 +18,14 @@ export type DirectoryList = Array<FileEntry | DirectoryEntry>
 
 export class LuaOnArduino {
   logger = new Logger()
-  osc = new AsyncOsc(new NodeSerialTransport())
+  osc: AsyncOsc
 
-  constructor({ debug = false } = {}) {
+  constructor(transport: AsyncOscTransport, { debug = false } = {}) {
+    this.osc = new AsyncOsc(transport)
+
     if (debug) {
       this.osc.on('/data/dev', (data: Uint8Array) =>
-        console.log(Buffer.from(data).toString())
+        console.log(new TextDecoder().decode(data))
       )
     }
 
@@ -33,13 +39,13 @@ export class LuaOnArduino {
       async (_message: Object, params: Record<string, any>) => {
         const data = await this.osc.waitForRawData()
         // @ts-ignore
-        this.logger[params.type]?.(Buffer.from(data).toString())
+        this.logger[params.type]?.(new TextDecoder().decode(data))
       }
     )
 
     // Handle uncategorized serial output from the device.
     this.osc.on('/data/unknown', (data: Uint8Array) =>
-      this.logger.print(Buffer.from(data).toString())
+      this.logger.print(new TextDecoder().decode(data))
     )
   }
 
@@ -63,10 +69,9 @@ export class LuaOnArduino {
   /**
    * Read a file from the device's SD card.
    */
-  async readFile(fileName: string): Promise<Buffer | null> {
+  async readFile(fileName: string): Promise<Uint8Array | null> {
     try {
-      const data = await this.osc.sendRequest('/read-file', fileName)
-      return Buffer.from(data)
+      return await this.osc.sendRequest('/read-file', fileName)
     } catch (error) {
       this.logger.error(
         `Error reading file ${fileName}.`,
@@ -79,17 +84,14 @@ export class LuaOnArduino {
   /**
    * Write a file to the device's SD card.
    */
-  async writeFile(
-    fileName: string,
-    data: Buffer | ArrayBuffer,
-    logSuccess = true
-  ) {
-    const buffer = data instanceof Buffer ? data : Buffer.from(data)
+  async writeFile(fileName: string, data: Uint8Array, logSuccess = true) {
+    fileName = pathToPosix(fileName)
+
     try {
       await this.osc.sendRawRequest(
         '/write-file',
-        [path.dirname(fileName), path.basename(fileName)],
-        buffer
+        [dirname(fileName), basename(fileName)],
+        data
       )
       logSuccess && this.logger.success('write file', fileName)
       return true
@@ -124,7 +126,9 @@ export class LuaOnArduino {
   async readDirectory(dirName: string) {
     try {
       return JSON.parse(
-        Buffer.from(await this.osc.sendRequest('/list-dir', dirName)).toString()
+        new TextDecoder().decode(
+          await this.osc.sendRequest('/list-dir', dirName)
+        )
       )
     } catch (error) {
       this.logger.error((error as Error)?.message)
@@ -228,8 +232,8 @@ export class LuaOnArduino {
     }
 
     const handleInitialAdd = (path: string) => {
-      if (override || !dirIncludes(dir, relative('lua/', path)))
-        syncFile(path, false)
+      const relativePath = path.substring(4) // omit the leading `lua/`
+      if (override || !dirIncludes(dir, relativePath)) syncFile(path, false)
     }
 
     return new Promise(resolve => {

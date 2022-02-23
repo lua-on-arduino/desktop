@@ -1,5 +1,3 @@
-import { sep } from 'path'
-
 function check(list: any, level: any, ...rest: string[]): boolean {
   for (const entry of list) {
     if (Array.isArray(entry)) {
@@ -13,7 +11,7 @@ function check(list: any, level: any, ...rest: string[]): boolean {
 }
 
 export const dirIncludes = (list: any, path: string) => {
-  const parts = path.split(sep)
+  const parts = path.split('/')
   const first = parts.shift()
   return check(list, first, ...parts)
 }
