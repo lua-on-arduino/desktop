@@ -6,7 +6,7 @@ import { relative } from 'path'
 import { pathToPosix, dirIncludes, delay } from './utils/index'
 import AsyncOsc from 'async-osc'
 import NodeSerialTransport from 'async-osc/dist/NodeSerialTransport.js'
-import { Logger } from './Logger'
+import { Logger } from './logger'
 
 type FileEntry = string
 type DirectoryEntry = [string, Array<FileEntry | DirectoryEntry>]
@@ -206,7 +206,7 @@ export class LuaOnArduino {
    */
   async syncFiles(
     pattern: string,
-    { watch = false, override = true } = {}
+    { watch = false, override = true, initial = false } = {}
   ): Promise<chokidar.FSWatcher> {
     this.logger.info(`sync files ${pattern}`)
     const dir = await this.readDirectory('lua')
@@ -234,7 +234,7 @@ export class LuaOnArduino {
 
     return new Promise(resolve => {
       const watcher = chokidar.watch(pattern)
-      watcher.on('add', handleInitialAdd)
+      initial && watcher.on('add', handleInitialAdd)
       watcher.on('ready', async () => {
         watcher.off('add', handleInitialAdd)
         watcher.on('change', syncFile)

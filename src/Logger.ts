@@ -24,7 +24,7 @@ export class Logger {
   /**
    * Log a warning to the console.
    */
-  warning(text: string, detail?: string) {
+  warn(text: string, detail?: string) {
     detail = detail ? ` (${detail})` : ''
     console.log(this.prefix + chalk.yellow(text + detail))
   }
@@ -53,7 +53,7 @@ export class Logger {
     try {
       json = JSON.parse(jsonString)
     } catch (error) {
-      this.warning(`Dump from lua isn't valid JSON: '${jsonString}'`)
+      this.warn(`Dump from lua isn't valid JSON: '${jsonString}'`)
     }
     console.log(highlightLuaDump(json))
   }
