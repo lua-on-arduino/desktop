@@ -1,4 +1,3 @@
-import type SerialPort from 'serialport'
 import { pathToPosix, dirname, basename } from './utils/index'
 import AsyncOsc from 'async-osc'
 import type { AsyncOscTransport } from 'async-osc'

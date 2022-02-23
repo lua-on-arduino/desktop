@@ -1,8 +1,8 @@
-import chalk from 'chalk'
+import pico from 'picocolors'
 import { highlightLuaDump } from './utils/highlightLuaDump'
 
 export class Logger {
-  prefix = chalk.blue('[Loa] ')
+  prefix = pico.blue('[Loa] ')
 
   /**
    * Print text to the console.
@@ -18,7 +18,7 @@ export class Logger {
    */
   info(text: string, detail?: string) {
     detail = detail ? ` (${detail})` : ''
-    console.log(this.prefix + chalk.gray(text + detail))
+    console.log(this.prefix + pico.gray(text + detail))
   }
 
   /**
@@ -26,7 +26,7 @@ export class Logger {
    */
   warn(text: string, detail?: string) {
     detail = detail ? ` (${detail})` : ''
-    console.log(this.prefix + chalk.yellow(text + detail))
+    console.log(this.prefix + pico.yellow(text + detail))
   }
 
   /**
@@ -34,15 +34,15 @@ export class Logger {
    */
   error(text: string, detail?: string) {
     detail = detail ? ` (${detail})` : ''
-    console.log(this.prefix + chalk.red(text + detail))
+    console.log(this.prefix + pico.red(text + detail))
   }
 
   /**
    * Log a success message to the console.
    */
   success(text: string, detail?: string) {
-    detail = detail ? ` ${chalk.gray(detail)}` : ''
-    console.log(this.prefix + chalk.green(text) + detail)
+    detail = detail ? ` ${pico.gray(detail)}` : ''
+    console.log(this.prefix + pico.green(text) + detail)
   }
 
   /**

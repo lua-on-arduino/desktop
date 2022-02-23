@@ -1,12 +1,12 @@
-import chalk from 'chalk'
+import pico from 'picocolors'
 
 const colorize = {
-  specialKey: chalk.cyan,
-  key: chalk.green,
-  complexType: chalk.magenta,
-  number: chalk.blue,
-  boolean: chalk.blue,
-  string: chalk.yellow,
+  specialKey: pico.cyan,
+  key: pico.green,
+  complexType: pico.magenta,
+  number: pico.blue,
+  boolean: pico.blue,
+  string: pico.yellow,
 }
 
 const indent = (depth: number) => '  '.repeat(depth)
