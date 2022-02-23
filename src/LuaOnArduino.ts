@@ -1,13 +1,5 @@
-import chokidar from 'chokidar'
-import { promises as fs } from 'fs'
 import type SerialPort from 'serialport'
-import {
-  pathToPosix,
-  dirname,
-  basename,
-  dirIncludes,
-  delay,
-} from './utils/index'
+import { pathToPosix, dirname, basename } from './utils/index'
 import AsyncOsc from 'async-osc'
 import type { AsyncOscTransport } from 'async-osc'
 import { Logger } from './logger'
@@ -52,9 +44,9 @@ export class LuaOnArduino {
   /**
    * Connect to the device.
    */
-  async connect(path: string, options: SerialPort.OpenOptions = {}) {
+  async connect(options?: any) {
     try {
-      await this.osc.connect({ path, ...options })
+      await this.osc.connect(options)
       this.logger.success('connected')
       return true
     } catch (error) {
@@ -203,50 +195,5 @@ export class LuaOnArduino {
       )
       return false
     }
-  }
-
-  /**
-   * Sync files to the device.
-   */
-  async syncFiles(
-    pattern: string,
-    { watch = false, override = true, initial = false } = {}
-  ): Promise<chokidar.FSWatcher> {
-    this.logger.info(`sync files ${pattern}`)
-    const dir = await this.readDirectory('lua')
-
-    const syncFile = async (path: string, update = true) => {
-      const posixPath = pathToPosix(path)
-
-      // As `updateFile()` also logs a success message we can omit the
-      // `writeFile()` success.
-      const logSuccess = !update
-
-      // For some reasons, reading the file inside a chokidar callback sometimes
-      // returns an empty string, at least on windows. Maybe the file is locked?
-      // As a (dirty) workaround we just wait a bit...
-      await delay(10)
-
-      this.writeFile(posixPath, await fs.readFile(path), logSuccess)
-      update && this.updateFile(posixPath)
-    }
-
-    const handleInitialAdd = (path: string) => {
-      const relativePath = path.substring(4) // omit the leading `lua/`
-      if (override || !dirIncludes(dir, relativePath)) syncFile(path, false)
-    }
-
-    return new Promise(resolve => {
-      const watcher = chokidar.watch(pattern)
-      initial && watcher.on('add', handleInitialAdd)
-      watcher.on('ready', async () => {
-        watcher.off('add', handleInitialAdd)
-        watcher.on('change', syncFile)
-        if (!watch) {
-          watcher.close()
-          resolve(watcher)
-        }
-      })
-    })
   }
 }

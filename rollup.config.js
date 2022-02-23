@@ -18,7 +18,7 @@ const bundle = {
     format: 'es',
     sourcemap: true,
   },
-  external: ['serialport', 'path', 'chokidar', 'fs'],
+  external: ['serialport'],
   plugins: [esbuild(), nodeResolve(), commonjs()],
 }
 

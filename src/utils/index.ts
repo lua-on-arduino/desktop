@@ -1,6 +1,4 @@
-export * from './delay'
 export * from './dirIncludes'
 export * from './getMessageId'
 export * from './highlightLuaDump'
 export * from './path'
-export * from './startsWith'
